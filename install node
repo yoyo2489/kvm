@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Update the system
+echo "Updating the system..."
+sudo apt update -y
+sudo apt upgrade -y
+
+# Obtain IP, gateway, and netmask from the operating system
+iface=$(ip route | grep "default" | awk '{print $5}')
+ip_address=$(ip -4 addr show dev "$iface" | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+')
+gateway=$(ip route | awk '/default/ { print $3 }')
+netmask=$(ip -4 addr show dev "$iface" | grep -oP '(?<=inet\s'$ip_address'\s\/)\d+')
+
+# DNS servers
+dns1="8.8.8.8" # Replace with your DNS server 1
+dns2="8.8.4.4" # Replace with your DNS server 2
+
+# Configure the bridge
+echo "Configuring the bridge..."
+sudo cp /etc/network/interfaces /etc/network/interfaces.bak
+sudo cat <<EOL > /etc/network/interfaces
+auto lo
+iface lo inet loopback
+
+auto $iface
+iface $iface inet manual
+
+auto br0
+iface br0 inet static
+  bridge_ports $iface
+  address $ip_address
+  gateway $gateway
+  netmask $netmask
+  dns-nameservers $dns1 $dns2
+  bridge_stp off
+  bridge_waitport 0
+  bridge_fd 0
+EOL
+
+# Restart networking
+echo "Restarting networking..."
+sudo systemctl restart networking
+
+# Change SSH port to 24789
+echo "Changing SSH port to 24789..."
+sudo sed -i 's/Port 22/Port 24789/' /etc/ssh/sshd_config
+
+# Whitelist SSH port (24789) in UFW
+echo "Whitelisting SSH port (24789) in UFW..."
+sudo ufw allow 24789/tcp
+
+# Whitelist additional ports (8892, 5900+) in UFW
+echo "Whitelisting additional ports (8892, 5900+) in UFW..."
+sudo ufw allow 8892/tcp
+sudo ufw allow 5900:5999/tcp
+
+# Enable memory ballooning
+echo "Enabling memory ballooning..."
+sudo sed -i 's/#balloon\s*=\s*0/balloon = 1/' /etc/qemu.conf
+
+# Enable Huge Pages
+echo "Enabling Huge Pages..."
+echo "vm.nr_hugepages = 1024" | sudo tee -a /etc/sysctl.conf
+
+# Apply sysctl changes
+sudo sysctl -p
+
+# Restart SSH
+echo "Restarting SSH..."
+sudo systemctl restart ssh
+
+echo "All tasks completed!"
