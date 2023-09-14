@@ -56,7 +56,7 @@ sudo ufw allow 5900:5999/tcp
 
 # Enable memory ballooning
 echo "Enabling memory ballooning..."
-sudo sed -i 's/#balloon\s*=\s*0/balloon = 1/' /etc/qemu.conf
+sudo sed -i 's/#balloon\s*=\s*0/balloon = 1/' /etc/libvirt/qemu.conf
 
 # Enable Huge Pages
 echo "Enabling Huge Pages..."
