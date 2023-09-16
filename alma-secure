@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Change SSH port to 24789
+sudo sed -i 's/#Port 22/Port 24789/' /etc/ssh/sshd_config
+
+# Install Fail2Ban
+sudo dnf install fail2ban -y
+
+# Install Firewalld and whitelist SSH
+sudo dnf install firewalld -y
+sudo systemctl enable firewalld
+sudo systemctl start firewalld
+sudo firewall-cmd --permanent --zone=public --add-service=ssh
+sudo firewall-cmd --reload
+
+# Install auditd
+sudo dnf install audit -y
+sudo systemctl enable auditd
+sudo systemctl start auditd
+
+# Configure logrotate for audit logs
+sudo tee -a /etc/logrotate.d/audit <<EOL
+/var/log/audit/*.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0600 root root
+}
+EOL
+
+# Update the system
+sudo dnf update -y
+
+# Restart SSH to apply changes
+sudo systemctl restart sshd
+
+echo "SSH port changed to 24789, Fail2Ban, Firewalld, auditd installed, logrotate configured, system updated."
