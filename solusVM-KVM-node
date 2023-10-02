@@ -108,8 +108,14 @@ prefix=$(ip -4 addr show "$active_interface" | awk '/inet / {print $2}' | cut -d
 dnf install -y bridge-utils
 add_change "Installed bridge-utils package"
 
+# Check if /etc/sysconfig/network-scripts/ifcfg-br0 already exists and abort if it does
+if [ -e "/etc/sysconfig/network-scripts/ifcfg-br0" ]; then
+  echo "Error: /etc/sysconfig/network-scripts/ifcfg-br0 already exists. Aborting."
+  exit 1
+fi
+
 # Create /etc/sysconfig/network-scripts/ifcfg-br0
-cat <<EOL | sudo tee /etc/sysconfig/network-scripts/ifcfg-br0
+cat <<EOL |  tee /etc/sysconfig/network-scripts/ifcfg-br0
 DEVICE=br0
 TYPE=Bridge
 BOOTPROTO=static
