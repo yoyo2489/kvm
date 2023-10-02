@@ -64,6 +64,7 @@ firewall-cmd --permanent --add-port=6767/tcp
 firewall-cmd --permanent --add-port=5901-5999/tcp
 firewall-cmd --permanent --add-port=53/tcp
 firewall-cmd --permanent --add-port=53/udp
+firewall-cmd --permanent --add-port=1157/tcp
 firewall-cmd --permanent --zone=public --add-service=ssh
 firewall-cmd --reload
 add_change "Configured Firewalld rules"
