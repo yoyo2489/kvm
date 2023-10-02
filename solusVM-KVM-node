@@ -17,30 +17,37 @@ read -p "Enter the new hostname: " new_hostname
 
 # Set the new hostname
 hostnamectl set-hostname "$new_hostname"
+add_change "Hostname set to: $new_hostname"
 
 # Update /etc/hostname
 echo "$new_hostname" | sudo tee /etc/hostname > /dev/null
+add_change "Updated /etc/hostname"
 
 # Update /etc/hosts
 sed -i "s/127.0.0.1.*/127.0.0.1   localhost $new_hostname/" /etc/hosts
+add_change "Updated /etc/hosts"
 
-# Change SSH port to 24789
+# Change SSH port to 1157
 sudo sed -i 's/#Port 22/Port 1157/' /etc/ssh/sshd_config
+add_change "Changed SSH port to 1157"
 
 # Restart SSH to apply changes
 systemctl restart sshd
+add_change "Restarted SSH service"
 
 # Enable the EPEL repository
 dnf install -y epel-release
 
-# Install the network-scripts package:
+# Install the network-scripts package
 dnf install -y network-scripts
+add_change "Installed network-scripts package"
 
 # Install Fail2Ban
-dnf install fail2ban -y
+dnf install -y fail2ban
+add_change "Installed Fail2Ban"
 
-# Install Firewalld and whitelist SSH
-dnf install firewalld -y
+# Install Firewalld and whitelist SSH and additional ports
+dnf install -y firewalld
 systemctl enable firewalld
 systemctl start firewalld
 firewall-cmd --permanent --add-port=6767/tcp
@@ -49,11 +56,13 @@ firewall-cmd --permanent --add-port=53/tcp
 firewall-cmd --permanent --add-port=53/udp
 firewall-cmd --permanent --zone=public --add-service=ssh
 firewall-cmd --reload
+add_change "Configured Firewalld rules"
 
 # Install auditd
-dnf install audit -y
+dnf install -y audit
 systemctl enable auditd
 systemctl start auditd
+add_change "Installed and configured auditd"
 
 # Configure logrotate for audit logs
 sudo tee -a /etc/logrotate.d/audit <<EOL
@@ -67,16 +76,18 @@ sudo tee -a /etc/logrotate.d/audit <<EOL
     create 0600 root root
 }
 EOL
+add_change "Configured logrotate for audit logs"
 
 # Disable Network Manager
 systemctl stop NetworkManager
 systemctl disable NetworkManager
 systemctl enable network
 systemctl start network
+add_change "Disabled Network Manager"
 
 # Find the active interface
 active_interface=$(ip route get 8.8.8.8 | awk '{print $5}')
-echo "Active Interface: $active_interface"
+add_change "Active Interface: $active_interface"
 
 # Find IP, gateway, and subnet
 ip_info=$(ip -4 addr show "$active_interface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
@@ -85,6 +96,7 @@ prefix=$(ip -4 addr show "$active_interface" | awk '/inet / {print $2}' | cut -d
 
 # Install bridge-utils package
 dnf install -y bridge-utils
+add_change "Installed bridge-utils package"
 
 # Create /etc/sysconfig/network-scripts/ifcfg-br0
 cat <<EOL | sudo tee /etc/sysconfig/network-scripts/ifcfg-br0
@@ -102,8 +114,9 @@ IPADDR=$ip_info
 PREFIX=$prefix
 GATEWAY=$gateway
 EOL
+add_change "Created /etc/sysconfig/network-scripts/ifcfg-br0"
 
-#Create /etc/sysconfig/network-scripts/ifcfg-br0
+# Create a backup of the original interface configuration file
 cp "/etc/sysconfig/network-scripts/ifcfg-$active_interface" "/root/ifcfg-$active_interface.backup"
 
 # Create a new ifcfg-eth0 file with the specified configuration
@@ -116,9 +129,11 @@ IPV6INIT=yes
 IPV6_AUTOCONF=yes
 BRIDGE=br0
 EOL
+add_change "Configured $active_interface as a bridge interface"
 
 # Restart the network service
 systemctl restart network
+add_change "Restarted the network service"
 
 # Display the summary of changes
 echo -e "Summary of Changes:\n$changes"
