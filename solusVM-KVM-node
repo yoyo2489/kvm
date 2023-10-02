@@ -119,3 +119,6 @@ EOL
 
 # Restart the network service
 systemctl restart network
+
+# Display the summary of changes
+echo -e "Summary of Changes:\n$changes"
