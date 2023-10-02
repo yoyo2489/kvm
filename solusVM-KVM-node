@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Enable error handling: stop the script if any command fails
+set -e
+
+# Prompt the user for the new hostname
+read -p "Enter the new hostname: " new_hostname
+
+# Set the new hostname
+hostnamectl set-hostname "$new_hostname"
+
+# Update /etc/hostname
+echo "$new_hostname" | sudo tee /etc/hostname > /dev/null
+
+# Update /etc/hosts
+sed -i "s/127.0.0.1.*/127.0.0.1   localhost $new_hostname/" /etc/hosts
+
+# Enable the EPEL repository
+dnf install -y epel-release
+
+# Install the network-scripts package:
+dnf install -y network-scripts
+
+# Disable Network Manager
+systemctl stop NetworkManager
+systemctl disable NetworkManager
+systemctl enable network
+systemctl start network
+
+# Find the active interface
+active_interface=$(ip route get 8.8.8.8 | awk '{print $5}')
+echo "Active Interface: $active_interface"
+
+# Find IP, gateway, and subnet
+ip_info=$(ip -4 addr show "$active_interface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+gateway=$(ip route | awk '/default/ {print $3}')
+prefix=$(ip -4 addr show "$active_interface" | awk '/inet / {print $2}' | cut -d'/' -f2)
+
+# Install bridge-utils package
+dnf install -y bridge-utils
+
+# Create /etc/sysconfig/network-scripts/ifcfg-br0
+cat <<EOL | sudo tee /etc/sysconfig/network-scripts/ifcfg-br0
+DEVICE=br0
+TYPE=Bridge
+BOOTPROTO=static
+ONBOOT=yes
+NM_CONTROLLED=no
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_PEERDNS=yes
+IPV6_PEERROUTES=yes
+IPV6_FAILURE_FATAL=no
+IPADDR=$ip_info
+PREFIX=$prefix
+GATEWAY=$gateway
+EOL
+
+#Create /etc/sysconfig/network-scripts/ifcfg-br0
+cp "/etc/sysconfig/network-scripts/ifcfg-$active_interface" "/root/ifcfg-$active_interface.backup"
+
+# Create a new ifcfg-eth0 file with the specified configuration
+cat <<EOL | sudo tee /etc/sysconfig/network-scripts/ifcfg-$active_interface > /dev/null
+NAME=$active_interface
+DEVICE=$active_interface
+ONBOOT=yes
+NM_CONTROLLED=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+BRIDGE=br0
+EOL
+
+# Restart the network service
+systemctl restart network
