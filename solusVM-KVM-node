@@ -12,6 +12,9 @@ add_change() {
   changes="${changes} - $message"$'\n'
 }
 
+# Temporarily disable SELinux
+setenforce 0
+
 # Persistently disable SELinux
 sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
 add_change "Permanently disabled SELinux in configuration file"
