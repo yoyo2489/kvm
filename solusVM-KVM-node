@@ -49,6 +49,9 @@ dnf install -y epel-release
 dnf install -y network-scripts
 add_change "Installed network-scripts package"
 
+# Install Nettools 
+dnf install -y net-tools
+
 # Install Fail2Ban
 dnf install -y fail2ban
 add_change "Installed Fail2Ban"
