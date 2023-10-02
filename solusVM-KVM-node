@@ -12,6 +12,10 @@ add_change() {
   changes="${changes} - $message"$'\n'
 }
 
+# Persistently disable SELinux
+sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+add_change "Permanently disabled SELinux in configuration file"
+
 # Prompt the user for the new hostname
 read -p "Enter the new hostname: " new_hostname
 
