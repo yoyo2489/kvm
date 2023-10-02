@@ -3,6 +3,15 @@
 # Enable error handling: stop the script if any command fails
 set -e
 
+# Initialize a variable to store the list of changes
+changes=""
+
+# Function to add changes to the summary
+add_change() {
+  local message="$1"
+  changes="${changes} - $message"$'\n'
+}
+
 # Prompt the user for the new hostname
 read -p "Enter the new hostname: " new_hostname
 
@@ -15,11 +24,49 @@ echo "$new_hostname" | sudo tee /etc/hostname > /dev/null
 # Update /etc/hosts
 sed -i "s/127.0.0.1.*/127.0.0.1   localhost $new_hostname/" /etc/hosts
 
+# Change SSH port to 24789
+sudo sed -i 's/#Port 22/Port 1157/' /etc/ssh/sshd_config
+
+# Restart SSH to apply changes
+systemctl restart sshd
+
 # Enable the EPEL repository
 dnf install -y epel-release
 
 # Install the network-scripts package:
 dnf install -y network-scripts
+
+# Install Fail2Ban
+dnf install fail2ban -y
+
+# Install Firewalld and whitelist SSH
+dnf install firewalld -y
+systemctl enable firewalld
+systemctl start firewalld
+firewall-cmd --permanent --add-port=6767/tcp
+firewall-cmd --permanent --add-port=5901-5999/tcp
+firewall-cmd --permanent --add-port=53/tcp
+firewall-cmd --permanent --add-port=53/udp
+firewall-cmd --permanent --zone=public --add-service=ssh
+firewall-cmd --reload
+
+# Install auditd
+dnf install audit -y
+systemctl enable auditd
+systemctl start auditd
+
+# Configure logrotate for audit logs
+sudo tee -a /etc/logrotate.d/audit <<EOL
+/var/log/audit/*.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0600 root root
+}
+EOL
 
 # Disable Network Manager
 systemctl stop NetworkManager
