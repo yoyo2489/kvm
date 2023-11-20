@@ -22,6 +22,10 @@ sudo sed -i "s/#Port 22/Port $new_ssh_port/g" /etc/ssh/sshd_config
 # Restart SSH to apply changes
 sudo systemctl restart sshd
 
+# Disable firewalld
+sudo systemctl stop firewalld
+sudo systemctl disable firewalld
+
 # Install Nettools
 sudo dnf install -y net-tools
 
