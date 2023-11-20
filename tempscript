@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Prompt the user for the new hostname
+read -p "Enter the new hostname: " new_hostname
+
+# Set the new hostname
+hostnamectl set-hostname "$new_hostname"
+
+# Update /etc/hostname
+echo "$new_hostname" | sudo tee /etc/hostname > /dev/null
+
+# Update /etc/hosts
+sudo sed -i "s/127.0.1.1.*/127.0.1.1\t$new_hostname/g" /etc/hosts
+
+# Change SSH port to 1157
+read -p "Enter the new SSH port (default is 1157): " new_ssh_port
+new_ssh_port=${new_ssh_port:-1157}
+
+# Update SSHD configuration
+sudo sed -i "s/#Port 22/Port $new_ssh_port/g" /etc/ssh/sshd_config
+
+# Restart SSH to apply changes
+sudo systemctl restart sshd
+
+# Install Nettools
+sudo dnf install -y net-tools
+
+# Ensure new SSH port is set and working
+echo "Checking if SSH is running on port $new_ssh_port..."
+sudo ss -tuln | grep "$new_ssh_port"
+
+# Install Fail2Ban
+sudo dnf install -y fail2ban
+
+# Install auditd
+sudo dnf install -y audit
+
+# Enable and start auditd service
+sudo systemctl enable auditd
+sudo systemctl start auditd
+
+# Display a message indicating the completion of the script
+echo "Script completed successfully!"
